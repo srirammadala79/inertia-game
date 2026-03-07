@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&C Algorithm Visualization Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            text-align: center;
+        }
+
+        #canvas-container {
+            margin: 20px auto;
+            display: inline-block;
+            border: 2px solid #444;
+        }
+
+        canvas {
+            background: #111;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #005f9e;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: default;
+        }
+
+        #status {
+            margin-top: 10px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Divide & Conquer Algorithm Visualization</h1>
+    <p>Live demonstration of Merge Sort pattern in pathfinding | Use arrow keys to navigate</p>
+
+    <div id="canvas-container">
+        <canvas id="mainCanvas" width="1280" height="720"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="prevFrame()">⬅ Previous</button>
+        <span id="frameCounter" style="font-size: 20px; margin: 0 30px; font-weight: bold;">Frame 1 / 22</span>
+        <button id="nextBtn" onclick="nextFrame()">Next ➡</button>
+        <button onclick="toggleFullscreen()" style="background: #9c27b0; margin-left: 20px;">🖥️ Fullscreen</button>
+        <button onclick="currentFrame=0; updateUI();" style="background: #ff6b6b; margin-left: 10px;">� Reset</button>
+    </div>
+    <div id="status" style="margin-top: 15px; font-size: 14px; color: #888;">
+        Press ← → arrow keys to navigate | F for fullscreen | R to reset
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentFrame = 0;
+
+        // --- 1. CONFIGURATION & DATA ---
+        const OFFSET_X = 50;
+        const OFFSET_Y = 100;
+        const SCALE = 50;
+
+        const POINTS = [
+            { id: 'A', x: 2, y: 2 }, { id: 'B', x: 3, y: 7 }, { id: 'C', x: 5, y: 4 }, // Left Group
+            { id: 'D', x: 10, y: 3 }, { id: 'E', x: 12, y: 8 }, { id: 'F', x: 13, y: 2 } // Right Group
+        ];
+
+        // --- 2. FRAME DATA DEFINITION ---
+
+        const FRAMES = [
+            // --- INIT ---
+            {
+                title: "Input Array", desc: "Received 6 Coordinates. Start at Player (0,0).",
+                tree: {
+                    active: 'root', nodes: [
+                        { id: 'root', label: 'Root [6]', start: '(0,0)' }
+                    ]
+                },
+                grid: { highlight: [], split: null, paths: [] }
+            },
+
+            // --- ROOT SPLIT ---
+            {
+                title: "Calculate Range (Root)", desc: "Range X: 11, Range Y: 6. X > Y -> Split Vertical.",
+                tree: {
+                    active: 'root', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C', 'D', 'E', 'F'], split: { type: 'x', val: 7.5 }, paths: [] }
+            },
+
+            {
+                title: "Sort & Split (Root)", desc: "Left: {A,B,C}, Right: {D,E,F}",
+                tree: {
+                    active: 'root', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Left [3]', start: '(0,0)' },
+                        { id: 'R', label: 'Right [3]', start: '?' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C'], split: { type: 'x', val: 7.5 }, paths: [] }
+            },
+
+            // --- LEFT BRANCH ---
+            {
+                title: "Recurse Left", desc: "Processing Left Group: {A, B, C} from (0,0)",
+                tree: {
+                    active: 'L', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'R', label: 'Right [3]', start: '?' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C'], split: null, paths: [] }
+            },
+
+            {
+                title: "Calculate Range (Left)", desc: "Range X: 3, Range Y: 5. Y > X -> Split Horizontal.",
+                tree: {
+                    active: 'L', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C'], split: { type: 'y', val: 4.5 }, paths: [] }
+            },
+
+            {
+                title: "Sort & Split (Left)", desc: "Top: {B}, Bottom: {A, C}",
+                tree: {
+                    active: 'L', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]', start: '(0,0)' },
+                        { id: 'L2', label: 'Bot [2]', start: '?' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['B', 'A', 'C'], split: { type: 'y', val: 4.5 }, paths: [] }
+            },
+
+            // --- RECURSE L2 (A,C) FIRST (Optimal Path Logic) ---
+
+            {
+                title: "Recurse Bottom (L2)", desc: "Closest to (0,0) is Bottom group {A,C}.",
+                tree: {
+                    active: 'L2', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]', start: '?' },
+                        { id: 'L2', label: 'Split X', start: '(0,0)' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['A', 'C'], split: null, paths: [] }
+            },
+
+            {
+                title: "Split Bottom (L2)", desc: "Split X. Left: {A}, Right: {C}",
+                tree: {
+                    active: 'L2', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]' },
+                        { id: 'L2', label: 'Split X', start: '(0,0)' },
+                        { id: 'L2a', label: '{A}', start: '(0,0)' },
+                        { id: 'L2b', label: '{C}', start: '?' }
+                    ]
+                },
+                grid: { highlight: ['A', 'C'], split: { type: 'x', val: 3.5 }, paths: [] }
+            },
+
+            // --- SOLVE L2a (A) ---
+            {
+                title: "Solve Leaf (A)", desc: "Path: (0,0) -> A(2,2)",
+                tree: {
+                    active: 'L2a', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]' },
+                        { id: 'L2', label: 'Split X', start: '(0,0)' },
+                        { id: 'L2a', label: '{A}', start: '(0,0)', end: '(2,2)', color: 'lime' },
+                        { id: 'L2b', label: '{C}', start: '(2,2)' }
+                    ]
+                },
+                grid: { highlight: ['A'], split: null, paths: [['A']] }
+            },
+
+            // --- SOLVE L2b (C) ---
+            {
+                title: "Solve Leaf (C)", desc: "Path: A(2,2) -> C(5,4)",
+                tree: {
+                    active: 'L2b', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]' },
+                        { id: 'L2', label: 'Split X', start: '(0,0)' },
+                        { id: 'L2a', label: '{A}', start: '(0,0)', end: '(2,2)', color: 'lime' },
+                        { id: 'L2b', label: '{C}', start: '(2,2)', end: '(5,4)', color: 'lime' }
+                    ]
+                },
+                grid: { highlight: ['C'], split: null, paths: [['A'], ['C']] }
+            },
+
+            // --- MERGE L2 ---
+            {
+                title: "Merge Bottom (L2)", desc: "Merged A->C. End at C(5,4).",
+                tree: {
+                    active: 'L2', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: 'Top [1]', start: '(5,4)' },
+                        { id: 'L2', label: 'Merged', start: '(0,0)', end: '(5,4)', color: 'lime' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['A', 'C'], split: null, paths: [['A', 'C']] }
+            },
+
+            // --- SOLVE L1 (B) ---
+            {
+                title: "Solve Top (L1)", desc: "From C(5,4) -> Top group {B}.",
+                tree: {
+                    active: 'L1', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: '{B}', start: '(5,4)' },
+                        { id: 'L2', label: 'Merged', start: '(0,0)', end: '(5,4)', color: 'lime' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['B'], split: null, paths: [['A', 'C']] }
+            },
+
+            {
+                title: "Solve Leaf (B)", desc: "Path: C(5,4) -> B(3,7)",
+                tree: {
+                    active: 'L1', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Split Y', start: '(0,0)' },
+                        { id: 'L1', label: '{B}', start: '(5,4)', end: '(3,7)', color: 'lime' },
+                        { id: 'L2', label: 'Merged', start: '(0,0)', end: '(5,4)', color: 'lime' },
+                        { id: 'R', label: 'Right [3]' }
+                    ]
+                },
+                grid: { highlight: ['B'], split: null, paths: [['A', 'C'], ['B']] }
+            },
+
+            // --- MERGE L ---
+            {
+                title: "Merge Left Group", desc: "Merged Bottom->Top. End at B(3,7).",
+                tree: {
+                    active: 'L', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Merged', start: '(0,0)', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Right [3]', start: '(3,7)' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C'], split: null, paths: [['A', 'C', 'B']] }
+            },
+
+
+            // --- RECURSE RIGHT ---
+            {
+                title: "Recurse Right", desc: "Processing Right Group from B(3,7).",
+                tree: {
+                    active: 'R', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Done', start: '(0,0)', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y', start: '(3,7)' }
+                    ]
+                },
+                grid: { highlight: ['D', 'E', 'F'], split: null, paths: [['A', 'C', 'B']] }
+            },
+
+            {
+                title: "Sort & Split (Right)", desc: "Top: {E}, Bottom: {D,F}",
+                tree: {
+                    active: 'R', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Done', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y', start: '(3,7)' },
+                        { id: 'R1', label: 'Top [1]', start: '(3,7)' },
+                        { id: 'R2', label: 'Bot [2]', start: '?' }
+                    ]
+                },
+                grid: { highlight: ['D', 'E', 'F'], split: { type: 'y', val: 5.5 }, paths: [['A', 'C', 'B']] }
+            },
+
+            // --- SOLVE R1 (E) ---
+            {
+                title: "Solve Top (R1)", desc: "Path: B(3,7) -> E(12,8)",
+                tree: {
+                    active: 'R1', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Done', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y', start: '(3,7)' },
+                        { id: 'R1', label: '{E}', start: '(3,7)', end: '(12,8)', color: 'lime' },
+                        { id: 'R2', label: 'Bot [2]', start: '(12,8)' }
+                    ]
+                },
+                grid: { highlight: ['E'], split: null, paths: [['A', 'C', 'B'], ['E']] }
+            },
+
+            // --- SOLVE R2 (D,F) ---
+            {
+                title: "Recurse Bottom (R2)", desc: "From E(12,8) -> {D,F}",
+                tree: {
+                    active: 'R2', nodes: [
+                        { id: 'root', label: 'Split X', start: '(0,0)' },
+                        { id: 'L', label: 'Done', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y', start: '(3,7)' },
+                        { id: 'R1', label: '{E}', end: '(12,8)', color: 'lime' },
+                        { id: 'R2', label: 'Split X', start: '(12,8)' },
+                        { id: 'R2a', label: '{D}', start: '?' },
+                        { id: 'R2b', label: '{F}', start: '?' }
+                    ]
+                },
+                grid: { highlight: ['D', 'F'], split: { type: 'x', val: 11.5 }, paths: [['A', 'C', 'B'], ['E']] }
+            },
+
+            {
+                title: "Solve Leaf (D)", desc: "Path: E(12,8) -> D(10,3)",
+                tree: {
+                    active: 'R2a', nodes: [
+                        { id: 'root', label: 'Split X' },
+                        { id: 'L', label: 'Done', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y' },
+                        { id: 'R1', label: '{E}', end: '(12,8)', color: 'lime' },
+                        { id: 'R2', label: 'Split X' },
+                        { id: 'R2a', label: '{D}', start: '(12,8)', end: '(10,3)', color: 'lime' },
+                        { id: 'R2b', label: '{F}', start: '(10,3)' }
+                    ]
+                },
+                grid: { highlight: ['D'], split: null, paths: [['A', 'C', 'B'], ['E'], ['D']] }
+            },
+
+            {
+                title: "Solve Leaf (F)", desc: "Path: D(10,3) -> F(13,2)",
+                tree: {
+                    active: 'R2b', nodes: [
+                        { id: 'root', label: 'Split X' },
+                        { id: 'L', label: 'Done', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Split Y' },
+                        { id: 'R1', label: '{E}', end: '(12,8)', color: 'lime' },
+                        { id: 'R2', label: 'Split X' },
+                        { id: 'R2a', label: '{D}', end: '(10,3)', color: 'lime' },
+                        { id: 'R2b', label: '{F}', start: '(10,3)', end: '(13,2)', color: 'lime' }
+                    ]
+                },
+                grid: { highlight: ['F'], split: null, paths: [['A', 'C', 'B'], ['E'], ['D'], ['F']] }
+            },
+
+            // --- MERGE R ---
+            {
+                title: "Merge Right Group", desc: "Merged Top->Bot. End at F(13,2).",
+                tree: {
+                    active: 'R', nodes: [
+                        { id: 'root', label: 'Split X' },
+                        { id: 'L', label: 'Merged', end: '(3,7)', color: 'lime' },
+                        { id: 'R', label: 'Merged', start: '(3,7)', end: '(13,2)', color: 'lime' }
+                    ]
+                },
+                grid: { highlight: ['D', 'E', 'F'], split: null, paths: [['A', 'C', 'B'], ['E', 'D', 'F']] }
+            },
+
+            // --- FINAL ---
+            {
+                title: "Final Solution", desc: "Combined Left -> Right. Total Path Complete.",
+                tree: {
+                    active: 'root', nodes: [
+                        { id: 'root', label: 'COMPLETE', start: '(0,0)', end: '(13,2)', color: 'gold' }
+                    ]
+                },
+                grid: { highlight: ['A', 'B', 'C', 'D', 'E', 'F'], split: null, paths: [['A', 'C', 'B', 'E', 'D', 'F']] }
+            }
+
+        ];
+
+        // --- 3. RENDER LOGIC ---
+
+        function drawFrame(fIndex) {
+            const f = FRAMES[fIndex];
+
+            // Clear
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // --- A. DRAW GRID (Left Side) ---
+            const GRID_W = 750;
+            const GRID_H = 550;
+            const GRID_X = 30; // Shifted Left
+            const GRID_Y = 100;
+
+            // Grid Background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(GRID_X, GRID_Y, GRID_W, GRID_H);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+
+            // Grid Lines
+            for (let x = 0; x <= 15; x++) {
+                ctx.beginPath(); ctx.moveTo(GRID_X + x * SCALE, GRID_Y); ctx.lineTo(GRID_X + x * SCALE, GRID_Y + GRID_H); ctx.stroke();
+            }
+            for (let y = 0; y <= 11; y++) {
+                ctx.beginPath(); ctx.moveTo(GRID_X, GRID_Y + y * SCALE); ctx.lineTo(GRID_X + GRID_W, GRID_Y + y * SCALE); ctx.stroke();
+            }
+
+            // Draw Paths
+            if (f.grid.paths) {
+                f.grid.paths.forEach(path => {
+                    if (path.length >= 1) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#00ffcc';
+                        ctx.lineWidth = 4;
+                        for (let i = 0; i < path.length; i++) {
+                            let pt = POINTS.find(p => p.id === path[i]);
+                            let px = GRID_X + pt.x * SCALE;
+                            let py = GRID_Y + pt.y * SCALE;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            // Draw Split Line
+            if (f.grid.split) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'yellow';
+                ctx.setLineDash([10, 10]);
+                ctx.lineWidth = 3;
+                if (f.grid.split.type === 'x') {
+                    let lx = GRID_X + f.grid.split.val * SCALE;
+                    ctx.moveTo(lx, GRID_Y);
+                    ctx.lineTo(lx, GRID_Y + GRID_H);
+                } else {
+                    let ly = GRID_Y + f.grid.split.val * SCALE;
+                    ctx.moveTo(GRID_X, ly);
+                    ctx.lineTo(GRID_X + GRID_W, ly);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw Points
+            POINTS.forEach(p => {
+                let px = GRID_X + p.x * SCALE;
+                let py = GRID_Y + p.y * SCALE;
+                let isHighlight = f.grid.highlight.includes(p.id);
+
+                ctx.beginPath();
+                ctx.arc(px, py, 12, 0, Math.PI * 2);
+                ctx.fillStyle = isHighlight ? '#ff0055' : '#555';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(p.id, px - 5, py - 20);
+
+                ctx.fillStyle = '#aaa';
+                ctx.font = '12px monospace';
+                ctx.fillText(`(${p.x},${p.y})`, px - 15, py + 30);
+            });
+
+            // Start Point (Player)
+            let startX = GRID_X + 0;
+            let startY = GRID_Y + 0;
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillRect(startX - 8, startY - 8, 16, 16);
+            ctx.fillText("Start", startX - 15, startY - 15);
+
+
+            // --- B. DRAW TREE (Right Side) ---
+            const TREE_X = 780; // Shifted Left to Fit 1280px
+            const TREE_Y = 80;
+            const NODE_W = 110;
+            const NODE_H = 60;
+
+            const nodePos = {
+                'root': { x: TREE_X + 200, y: TREE_Y },
+                'L': { x: TREE_X + 80, y: TREE_Y + 120 },
+                'R': { x: TREE_X + 320, y: TREE_Y + 120 },
+                'L1': { x: TREE_X + 20, y: TREE_Y + 240 },
+                'L2': { x: TREE_X + 140, y: TREE_Y + 240 },
+                'L2a': { x: TREE_X + 80, y: TREE_Y + 360 },
+                'L2b': { x: TREE_X + 200, y: TREE_Y + 360 },
+                'R1': { x: TREE_X + 260, y: TREE_Y + 240 },
+                'R2': { x: TREE_X + 380, y: TREE_Y + 240 },
+                'R2a': { x: TREE_X + 320, y: TREE_Y + 360 },
+                'R2b': { x: TREE_X + 440, y: TREE_Y + 360 },
+            };
+
+            // Connections
+            if (f.tree.nodes) {
+                const links = [
+                    ['root', 'L'], ['root', 'R'],
+                    ['L', 'L1'], ['L', 'L2'],
+                    ['L2', 'L2a'], ['L2', 'L2b'],
+                    ['R', 'R1'], ['R', 'R2'],
+                    ['R2', 'R2a'], ['R2', 'R2b']
+                ];
+
+                links.forEach(link => {
+                    let p1 = nodePos[link[0]];
+                    let p2 = nodePos[link[1]];
+                    if (f.tree.nodes.find(n => n.id === link[0]) && f.tree.nodes.find(n => n.id === link[1])) {
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y + NODE_H / 2);
+                        ctx.lineTo(p2.x, p2.y - NODE_H / 2);
+                        ctx.strokeStyle = '#555';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            // Nodes
+            if (f.tree.nodes) {
+                f.tree.nodes.forEach(node => {
+                    let pos = nodePos[node.id];
+                    let isActive = (node.id === f.tree.active);
+
+                    ctx.beginPath();
+                    ctx.rect(pos.x - NODE_W / 2, pos.y - NODE_H / 2, NODE_W, NODE_H);
+                    ctx.fillStyle = isActive ? '#ffcc00' : (node.color || '#222');
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = isActive ? 3 : 1;
+                    ctx.stroke();
+
+                    // Text inside box
+                    ctx.fillStyle = isActive ? '#000' : '#fff';
+                    ctx.textAlign = 'center';
+
+                    ctx.font = 'bold 13px Arial';
+                    ctx.fillText(node.label, pos.x, pos.y - 15);
+
+                    ctx.font = '11px monospace';
+                    if (node.start) ctx.fillText(`In:${node.start}`, pos.x, pos.y + 0);
+
+                    if (node.end) ctx.fillText(`Out:${node.end}`, pos.x, pos.y + 15);
+                });
+            }
+
+            // --- C. TEXT OVERLAYS ---
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 32px Segoe UI';
+            ctx.textAlign = 'left';
+            ctx.fillText(f.title, 50, 60);
+
+            ctx.fillStyle = '#ccc';
+            ctx.font = '20px Segoe UI';
+            ctx.fillText(f.desc, 50, 680);
+
+            ctx.textAlign = 'right';
+            ctx.fillText(`Frame ${fIndex + 1} / ${FRAMES.length}`, canvas.width - 50, 680);
+        }
+
+        function updateUI() {
+            document.getElementById('frameCounter').innerText = `Frame ${currentFrame + 1} / ${FRAMES.length}`;
+            document.getElementById('prevBtn').disabled = (currentFrame === 0);
+            document.getElementById('nextBtn').disabled = (currentFrame === FRAMES.length - 1);
+            drawFrame(currentFrame);
+        }
+
+        function nextFrame() {
+            if (currentFrame < FRAMES.length - 1) {
+                currentFrame++;
+                updateUI();
+            }
+        }
+
+        function prevFrame() {
+            if (currentFrame > 0) {
+                currentFrame--;
+                updateUI();
+            }
+        }
+
+        updateUI();
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextFrame();
+            else if (e.key === 'ArrowLeft') prevFrame();
+            else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+            else if (e.key === 'Home') { currentFrame = 0; updateUI(); }
+            else if (e.key === 'End') { currentFrame = FRAMES.length - 1; updateUI(); }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        }
+
+    </script>
+</body>
+
+</html>
