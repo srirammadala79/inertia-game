@@ -73,10 +73,14 @@
                     Algorithm Controls</h3>
 
                 <button onclick="solveGame()" id="solveBtn" style="background-color: #4CAF50;">BFS (Optimal)</button>
-                <button onclick="solveGameDNC()" id="solveDncBtn" style="background-color: #009688;">Divide &
-                    Conquer (Merge+Quick Sort)</button>
-                <button onclick="solveGameSorted()" id="solveSortedBtn" style="background-color: #f44336;">Greedy
-                    (Quick Sort)</button>
+                <button onclick="solveGameDP()" id="solveDpBtn" style="background-color: #673AB7;">DP (Optimal - Bitmask
+                    TSP)</button>
+                <button onclick="solveGameBacktracking()" id="solveBacktrackBtn"
+                    style="background-color: #FF9800;">Backtracking (Optimized DFS)</button>
+                <button onclick="solveGameDNC()" id="solveDncBtn"
+                    style="background-color: #009688; display:none;">Divide & Conquer (Merge+Quick Sort)</button>
+                <button onclick="solveGameSorted()" id="solveSortedBtn"
+                    style="background-color: #f44336; display:none;">Greedy (Quick Sort)</button>
 
                 <h3 style="margin: 15px 0 10px 0; color: #aaa; font-size: 0.9rem; text-transform: uppercase;">Manual
                     Controls</h3>
@@ -98,6 +102,8 @@
 
     <script src="script.js"></script>
     <script src="solvers.js"></script>
+    <script src="dp_solver.js"></script>
+    <script src="backtracking_solver.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Backtracking Algorithm Visualizer — Inertia Game</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow-x: hidden
+        }
+
+        h1 {
+            text-align: center;
+            padding: 18px 0 6px;
+            font-size: 1.6rem;
+            background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: .85rem;
+            margin-bottom: 14px
+        }
+
+        .main {
+            display: flex;
+            gap: 14px;
+            padding: 0 14px 14px;
+            height: calc(100vh - 80px);
+            min-height: 600px
+        }
+
+        .col {
+            background: #12122a;
+            border-radius: 10px;
+            padding: 14px;
+            border: 1px solid #252550
+        }
+
+        .col-left {
+            width: 320px;
+            min-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .col-mid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 380px
+        }
+
+        .col-right {
+            width: 310px;
+            min-width: 310px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .section-title {
+            font-size: .8rem;
+            text-transform: uppercase;
+            color: #6b6bff;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: #6b6bff;
+            border-radius: 2px
+        }
+
+        /* Grid */
+        .grid-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1
+        }
+
+        #grid {
+            display: grid;
+            gap: 2px;
+            background: #1a1a35;
+            padding: 4px;
+            border-radius: 8px;
+            border: 2px solid #303060
+        }
+
+        .cell {
+            width: 42px;
+            height: 42px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            position: relative;
+            transition: all .2s
+        }
+
+        .cell-empty {
+            background: #1e1e3a
+        }
+
+        .cell-wall {
+            background: #555;
+            color: #999;
+            font-size: .7rem
+        }
+
+        .cell-mine {
+            background: #3a1515;
+            border: 1px solid #ff4444
+        }
+
+        .cell-gem {
+            background: #152a3a;
+            border: 1px solid #4d96ff
+        }
+
+        .cell-stop {
+            background: #2a2a15;
+            border: 1px solid #aaa
+        }
+
+        .cell-player {
+            box-shadow: 0 0 12px #ffd93daa;
+            z-index: 2
+        }
+
+        .cell.exploring {
+            box-shadow: 0 0 14px #ffaa00cc;
+            animation: pulse .6s infinite alternate
+        }
+
+        .cell.path-line {
+            background: #1a2a1a !important;
+            border: 1px solid #4CAF50 !important
+        }
+
+        .cell.pruned-cell {
+            background: #2a1515 !important;
+            opacity: .7
+        }
+
+        .cell.best-path {
+            background: #0d3d0d !important;
+            border: 2px solid #4CAF50 !important;
+            box-shadow: 0 0 10px #4CAF5088
+        }
+
+        @keyframes pulse {
+            from {
+                box-shadow: 0 0 8px #ffaa0066
+            }
+
+            to {
+                box-shadow: 0 0 20px #ffaa00cc
+            }
+        }
+
+        .cell .gem-idx {
+            position: absolute;
+            bottom: 1px;
+            right: 3px;
+            font-size: .55rem;
+            color: #4d96ff;
+            font-family: 'JetBrains Mono'
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        .controls button {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Inter';
+            font-weight: 600;
+            font-size: .8rem;
+            cursor: pointer;
+            transition: all .15s
+        }
+
+        .btn-step {
+            background: #4d96ff;
+            color: #fff
+        }
+
+        .btn-step:hover {
+            background: #3a7be0
+        }
+
+        .btn-play {
+            background: #6bcb77;
+            color: #fff
+        }
+
+        .btn-play:hover {
+            background: #52a85e
+        }
+
+        .btn-reset {
+            background: #ff6b6b;
+            color: #fff
+        }
+
+        .btn-reset:hover {
+            background: #e05555
+        }
+
+        .btn-skip {
+            background: #9b59b6;
+            color: #fff
+        }
+
+        .btn-skip:hover {
+            background: #8244a0
+        }
+
+        .btn-new {
+            background: #f39c12;
+            color: #fff
+        }
+
+        .btn-new:hover {
+            background: #d4850c
+        }
+
+        button:disabled {
+            opacity: .4;
+            cursor: not-allowed
+        }
+
+        .speed-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .75rem;
+            color: #888
+        }
+
+        .speed-wrap input {
+            width: 80px;
+            accent-color: #6b6bff
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px
+        }
+
+        .stat {
+            background: #1a1a35;
+            border-radius: 6px;
+            padding: 8px 10px;
+            border: 1px solid #252550
+        }
+
+        .stat-label {
+            font-size: .65rem;
+            text-transform: uppercase;
+            color: #888;
+            letter-spacing: 1px
+        }
+
+        .stat-val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono';
+            margin-top: 2px
+        }
+
+        .stat-val.green {
+            color: #6bcb77
+        }
+
+        .stat-val.red {
+            color: #ff6b6b
+        }
+
+        .stat-val.blue {
+            color: #4d96ff
+        }
+
+        .stat-val.yellow {
+            color: #ffd93d
+        }
+
+        .stat-val.purple {
+            color: #9b59b6
+        }
+
+        /* Log */
+        #log {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono';
+            font-size: .72rem;
+            line-height: 1.6;
+            background: #0d0d20;
+            border-radius: 6px;
+            padding: 8px;
+            border: 1px solid #252550;
+            max-height: 300px
+        }
+
+        .log-explore {
+            color: #ffd93d
+        }
+
+        .log-collect {
+            color: #6bcb77
+        }
+
+        .log-prune {
+            color: #ff6b6b
+        }
+
+        .log-backtrack {
+            color: #ff9800
+        }
+
+        .log-success {
+            color: #4CAF50;
+            font-weight: 700
+        }
+
+        .log-best {
+            color: #e040fb;
+            font-weight: 700
+        }
+
+        .log-info {
+            color: #888
+        }
+
+        /* Tree */
+        #treeCanvas {
+            width: 100%;
+            border-radius: 6px;
+            background: #0d0d20;
+            border: 1px solid #252550
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: .7rem
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px
+        }
+
+        /* Explanation */
+        .explain-box {
+            background: #1a1a35;
+            border-radius: 6px;
+            padding: 10px;
+            border: 1px solid #252550;
+            font-size: .78rem;
+            line-height: 1.6;
+            color: #bbb;
+            flex-shrink: 0
+        }
+
+        .explain-box strong {
+            color: #ffd93d
+        }
+
+        .explain-box .key {
+            color: #6b6bff;
+            font-family: 'JetBrains Mono';
+            font-weight: 600
+        }
+
+        /* Mask display */
+        .mask-display {
+            font-family: 'JetBrains Mono';
+            font-size: .85rem;
+            background: #1a1a35;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #252550;
+            word-break: break-all
+        }
+
+        .mask-bit-0 {
+            color: #ff6b6b
+        }
+
+        .mask-bit-1 {
+            color: #6bcb77
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Backtracking Algorithm Visualizer</h1>
+    <p class="subtitle">Step-by-step visualization of how Backtracking (Branch & Bound DFS) solves the Inertia Game</p>
+
+    <div class="main">
+        <!-- LEFT COLUMN -->
+        <div class="col col-left">
+            <div>
+                <div class="section-title">Game Grid</div>
+            </div>
+            <div class="grid-wrap">
+                <div id="grid"></div>
+            </div>
+            <div>
+                <div class="section-title">Current Bitmask</div>
+                <div id="maskDisplay" class="mask-display">—</div>
+            </div>
+            <div>
+                <div class="section-title">Legend</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ffd93d"></div>Player
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#4d96ff"></div>Gem
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ff4444"></div>Mine
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#555"></div>Wall
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ffaa00"></div>Exploring
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#4CAF50"></div>Best Path
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot" style="background:#ff6b6b"></div>Pruned
+                    </div>
+                </div>
+            </div>
+            <div class="explain-box">
+                <strong>How Backtracking Works:</strong><br>
+                1. <span class="key">Explore</span> — Try each of 8 directions from current position<br>
+                2. <span class="key">Slide</span> — Player slides until hitting wall/boundary<br>
+                3. <span class="key">Collect</span> — Pick up gems passed during slide<br>
+                4. <span class="key">Prune</span> — Skip if path ≥ best known or state already visited with fewer
+                moves<br>
+                5. <span class="key">Backtrack</span> — Undo move, try next direction
+            </div>
+        </div>
+
+        <!-- MIDDLE COLUMN -->
+        <div class="col col-mid">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                <div class="section-title" style="margin:0">Controls</div>
+                <div class="controls">
+                    <button class="btn-step" id="btnStep" onclick="step()">▶ Step</button>
+                    <button class="btn-play" id="btnPlay" onclick="togglePlay()">⏵ Auto</button>
+                    <button class="btn-skip" id="btnSkip" onclick="skipToEnd()">⏭ Skip</button>
+                    <button class="btn-reset" onclick="resetVis()">↺ Reset</button>
+                    <button class="btn-new" onclick="newGrid()">🎲 New Grid</button>
+                    <div class="speed-wrap">Speed:<input type="range" id="speedSlider" min="1" max="20" value="8"></div>
+                </div>
+            </div>
+            <div>
+                <div class="section-title">Recursion Tree</div>
+                <canvas id="treeCanvas" height="260"></canvas>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+                <div class="section-title">Step-by-Step Log</div>
+                <div id="log"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col col-right">
+            <div>
+                <div class="section-title">Statistics</div>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Nodes Explored</div>
+                    <div class="stat-val yellow" id="statExplored">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Branches Pruned</div>
+                    <div class="stat-val red" id="statPruned">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Solutions Found</div>
+                    <div class="stat-val green" id="statSolutions">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Best Path Length</div>
+                    <div class="stat-val blue" id="statBest">—</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Current Depth</div>
+                    <div class="stat-val purple" id="statDepth">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Gems Collected</div>
+                    <div class="stat-val green" id="statGems">0/0</div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">Current State</div>
+            </div>
+            <div class="explain-box" id="stateExplain">
+                Press <strong>Step</strong> or <strong>Auto</strong> to begin the backtracking visualization.
+            </div>
+
+            <div>
+                <div class="section-title">Algorithm Pseudocode</div>
+            </div>
+            <div class="explain-box" id="pseudocode"
+                style="font-family:'JetBrains Mono';font-size:.68rem;line-height:1.7;flex:1;overflow-y:auto">
+                <span style="color:#888">function</span> <span style="color:#6bcb77">backtrack</span>(x, y, mask,
+                path):<br>
+                &nbsp;&nbsp;<span style="color:#888">if</span> mask == fullMask: <span style="color:#4CAF50">// All gems
+                    collected!</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;update bestPath<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4CAF50">return SUCCESS</span><br><br>
+                &nbsp;&nbsp;<span id="pc-prune1" style="color:#888">if</span> path.length ≥ bestPath.length:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ff6b6b">return PRUNE (too long)</span><br><br>
+                &nbsp;&nbsp;<span id="pc-prune2" style="color:#888">if</span> visited[x,y,mask] ≤ path.length:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ff6b6b">return PRUNE (seen better)</span><br><br>
+                &nbsp;&nbsp;<span style="color:#888">for each</span> direction <span style="color:#888">in</span> 8
+                dirs:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;simulate slide → (newX, newY)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;collect gems along the way<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;path.push(direction)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#ffd93d">backtrack(newX, newY, newMask, path)</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;path.pop() <span style="color:#ff9800">// ← BACKTRACK!</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === GRID CONFIG ===
+        const ROWS = 6, COLS = 7, TILE = 42;
+        const EMPTY = 0, WALL = 1, STOP = 2, MINE = 3, GEM = 4;
+        const DIR_NAMES = ['↑', '↓', '←', '→', '↖', '↗', '↙', '↘'];
+        const DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+
+        let grid = [], playerStart = { x: 0, y: 0 }, allGems = [], gemPositions = [];
+        let steps = [], stepIdx = 0, playing = false, playTimer = null;
+        let treeNodes = [];
+
+        function makeGrid() {
+            grid = [];
+            for (let y = 0; y < ROWS; y++) { let r = []; for (let x = 0; x < COLS; x++)r.push(EMPTY); grid.push(r) }
+            // walls
+            let wc = 0; while (wc < 5) { let x = ri(COLS), y = ri(ROWS); if (grid[y][x] === EMPTY) { grid[y][x] = WALL; wc++ } }
+            // mines
+            let mc = 0; while (mc < 3) { let x = ri(COLS), y = ri(ROWS); if (grid[y][x] === EMPTY) { grid[y][x] = MINE; mc++ } }
+            // stops
+            let sc = 0; while (sc < 3) { let x = ri(COLS), y = ri(ROWS); if (grid[y][x] === EMPTY) { grid[y][x] = STOP; sc++ } }
+            // player
+            do { playerStart.x = ri(COLS); playerStart.y = ri(ROWS) } while (grid[playerStart.y][playerStart.x] !== EMPTY);
+            // gems (3-4 for clarity)
+            let gc = 0, target = 3 + ri(2);
+            allGems = []; gemPositions = [];
+            while (gc < target) {
+                let x = ri(COLS), y = ri(ROWS);
+                if (grid[y][x] === EMPTY && (x !== playerStart.x || y !== playerStart.y)) {
+                    grid[y][x] = GEM; allGems.push(x + ',' + y); gemPositions.push({ x, y }); gc++;
+                }
+            }
+        }
+        function ri(n) { return Math.floor(Math.random() * n) }
+
+        // === PRE-COMPUTE ALL STEPS ===
+        function computeSteps() {
+            steps = []; treeNodes = [];
+            let numGems = allGems.length, fullMask = (1 << numGems) - 1;
+            let gemLookup = {}; for (let i = 0; i < numGems; i++)gemLookup[allGems[i]] = i;
+            let bestPath = null, visited = new Map();
+            let explored = 0, pruned = 0, solutions = 0;
+            let treeId = 0;
+            let rootId = treeId++;
+            treeNodes.push({ id: rootId, parent: -1, label: 'Start', state: 'root', depth: 0, x: playerStart.x, y: playerStart.y, mask: 0 });
+
+            function bt(x, y, mask, path, parentTreeId, depth) {
+                explored++;
+                let curTreeId = treeId++;
+                let bitsOn = 0; for (let b = 0; b < numGems; b++)if (mask & (1 << b)) bitsOn++;
+                let nodeLabel = `(${x},${y}) m=${mask.toString(2).padStart(numGems, '0')}`;
+                treeNodes.push({ id: curTreeId, parent: parentTreeId, label: nodeLabel, state: 'exploring', depth, x, y, mask });
+
+                // Success
+                if (mask === fullMask) {
+                    solutions++;
+                    if (!bestPath || path.length < bestPath.length) bestPath = [...path];
+                    treeNodes[treeNodes.length - 1].state = 'success';
+                    steps.push({
+                        type: 'success', x, y, mask, path: [...path], explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1,
+                        msg: `✅ ALL GEMS COLLECTED! Path length = ${path.length}${bestPath && path.length <= bestPath.length ? ' ← NEW BEST!' : ''}`
+                    });
+                    return;
+                }
+                // Prune: path too long
+                if (bestPath && path.length >= bestPath.length - 1) {
+                    pruned++;
+                    treeNodes[treeNodes.length - 1].state = 'pruned';
+                    steps.push({
+                        type: 'prune', x, y, mask, reason: 'path_too_long', explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1,
+                        msg: `✂ PRUNED at (${x},${y}): path length ${path.length} ≥ best ${bestPath.length} — no point continuing`
+                    });
+                    return;
+                }
+                // Prune: visited
+                let sid = x + ',' + y + ',' + mask;
+                let prev = visited.get(sid);
+                if (prev !== undefined && prev <= path.length) {
+                    pruned++;
+                    treeNodes[treeNodes.length - 1].state = 'pruned';
+                    steps.push({
+                        type: 'prune', x, y, mask, reason: 'visited', explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1,
+                        msg: `✂ PRUNED at (${x},${y}): already visited this state with ${prev} moves (current: ${path.length})`
+                    });
+                    return;
+                }
+                visited.set(sid, path.length);
+
+                steps.push({
+                    type: 'explore', x, y, mask, explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1, gemsCollected: bitsOn,
+                    msg: `🔍 Exploring (${x},${y}) | Depth ${depth} | Gems: ${bitsOn}/${numGems} | Mask: ${mask.toString(2).padStart(numGems, '0')}`
+                });
+
+                // Sort dirs toward nearest gem
+                let nearGem = null, nearD = 999;
+                for (let i = 0; i < numGems; i++) { if (mask & (1 << i)) continue; let d = Math.abs(x - gemPositions[i].x) + Math.abs(y - gemPositions[i].y); if (d < nearD) { nearD = d; nearGem = gemPositions[i] } }
+                let sortedDirs = [...DIRS.keys()];
+                if (nearGem) { let gdx = nearGem.x - x, gdy = nearGem.y - y; sortedDirs.sort((a, b) => { let da = DIRS[a][0] * Math.sign(gdx) + DIRS[a][1] * Math.sign(gdy); let db = DIRS[b][0] * Math.sign(gdx) + DIRS[b][1] * Math.sign(gdy); return db - da }) }
+
+                for (let di of sortedDirs) {
+                    let dx = DIRS[di][0], dy = DIRS[di][1];
+                    let simX = x, simY = y, simMask = mask, crashed = false, slidePath = [];
+                    while (true) {
+                        let nx = simX + dx, ny = simY + dy;
+                        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || grid[ny][nx] === WALL) break;
+                        simX = nx; simY = ny; slidePath.push({ x: simX, y: simY });
+                        if (grid[simY][simX] === GEM) { let gi = gemLookup[simX + ',' + simY]; if (gi !== undefined) simMask |= (1 << gi) }
+                        if (grid[simY][simX] === STOP) break;
+                        if (grid[simY][simX] === MINE) { crashed = true; break }
+                    }
+                    if (crashed || ((simX === x) && (simY === y))) continue;
+
+                    let newGems = 0; for (let b = 0; b < numGems; b++)if ((simMask & (1 << b)) && !(mask & (1 << b))) newGems++;
+                    steps.push({
+                        type: 'try_dir', x, y, mask, dir: di, dirName: DIR_NAMES[di], endX: simX, endY: simY, newMask: simMask, slidePath, newGems, explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1,
+                        msg: `  → Try ${DIR_NAMES[di]} direction: slide (${x},${y})→(${simX},${simY})${newGems > 0 ? ' 💎 +' + newGems + ' gem(s)!' : ''}`
+                    });
+
+                    path.push([dx, dy]);
+                    bt(simX, simY, simMask, path, curTreeId, depth + 1);
+                    path.pop();
+
+                    steps.push({
+                        type: 'backtrack', x, y, mask, dir: di, dirName: DIR_NAMES[di], explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, depth, treeIdx: treeNodes.length - 1,
+                        msg: `  ↩ Backtrack from ${DIR_NAMES[di]}: undo move, try next direction`
+                    });
+
+                    if (steps.length > 3000) return; // safety
+                }
+                treeNodes[treeNodes.length - 1].state = treeNodes[treeNodes.length - 1].state === 'exploring' ? 'done' : 'pruned';
+            }
+
+            bt(playerStart.x, playerStart.y, 0, [], rootId, 0);
+            steps.push({
+                type: 'finish', explored, pruned, solutions, bestLen: bestPath ? bestPath.length : null, bestPath,
+                msg: `🏁 FINISHED! Explored ${explored} nodes, pruned ${pruned} branches, found ${solutions} solution(s). Best path: ${bestPath ? bestPath.length : 'none'} moves.`
+            });
+        }
+
+        // === RENDERING ===
+        function drawGrid(highlight) {
+            let el = document.getElementById('grid');
+            el.innerHTML = '';
+            el.style.gridTemplateColumns = `repeat(${COLS},${TILE}px)`;
+            let h = highlight || {};
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    let d = document.createElement('div'); d.className = 'cell';
+                    let t = grid[y][x], k = x + ',' + y;
+                    if (t === WALL) { d.classList.add('cell-wall'); d.textContent = '▓' }
+                    else if (t === MINE) { d.classList.add('cell-mine'); d.textContent = '💣' }
+                    else if (t === GEM) { d.classList.add('cell-gem'); d.textContent = '💎'; let gi = allGems.indexOf(k); if (gi >= 0) { let s = document.createElement('span'); s.className = 'gem-idx'; s.textContent = gi; d.appendChild(s) } }
+                    else if (t === STOP) { d.classList.add('cell-stop'); d.textContent = '⬡' }
+                    else d.classList.add('cell-empty');
+                    if (h.exploring && h.exploring.x === x && h.exploring.y === y) d.classList.add('exploring');
+                    if (h.slide && h.slide.some(s => s.x === x && s.y === y)) d.classList.add('path-line');
+                    if (h.pruned && h.pruned.x === x && h.pruned.y === y) d.classList.add('pruned-cell');
+                    if (h.bestPath && h.bestPath.some(s => s.x === x && s.y === y)) d.classList.add('best-path');
+                    if (h.playerPos && h.playerPos.x === x && h.playerPos.y === y) { d.classList.add('cell-player'); d.textContent = '🧑'; d.style.fontSize = '1.3rem' }
+                    else if (x === playerStart.x && y === playerStart.y && !h.playerPos) { d.classList.add('cell-player'); d.textContent = '🧑'; d.style.fontSize = '1.3rem' }
+                    el.appendChild(d);
+                }
+            }
+        }
+
+        function drawTree() {
+            let canvas = document.getElementById('treeCanvas');
+            let ctx = canvas.getContext('2d');
+            canvas.width = canvas.clientWidth; canvas.height = 260;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (treeNodes.length <= 1) return;
+
+            // Collect rendered nodes up to current step
+            let maxIdx = 0;
+            if (stepIdx > 0 && stepIdx <= steps.length) { let s = steps[Math.min(stepIdx - 1, steps.length - 1)]; if (s.treeIdx !== undefined) maxIdx = s.treeIdx + 1; else maxIdx = treeNodes.length }
+            else maxIdx = 1;
+            let visible = treeNodes.slice(0, Math.min(maxIdx + 1, treeNodes.length));
+
+            // Layout by depth
+            let depthMap = {}; visible.forEach((n, i) => { if (!depthMap[n.depth]) depthMap[n.depth] = []; depthMap[n.depth].push(i) });
+            let maxDepth = Math.max(...Object.keys(depthMap).map(Number));
+            let positions = {};
+            for (let d = 0; d <= maxDepth; d++) {
+                let nodes = depthMap[d] || [];
+                let w = canvas.width / (nodes.length + 1);
+                nodes.forEach((ni, i) => { positions[ni] = { x: w * (i + 1), y: 20 + d * 38 } });
+            }
+
+            // Draw edges
+            ctx.lineWidth = 1.5;
+            visible.forEach((n, i) => {
+                if (n.parent >= 0 && positions[i] && positions[n.parent]) {
+                    let colors = { exploring: '#ffd93d', pruned: '#ff6b6b', success: '#4CAF50', done: '#555', root: '#6b6bff' };
+                    ctx.strokeStyle = colors[n.state] || '#444'; ctx.globalAlpha = .6;
+                    ctx.beginPath(); ctx.moveTo(positions[n.parent].x, positions[n.parent].y); ctx.lineTo(positions[i].x, positions[i].y); ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+            });
+
+            // Draw nodes
+            visible.forEach((n, i) => {
+                if (!positions[i]) return;
+                let { x, y } = positions[i];
+                let colors = { exploring: '#ffd93d', pruned: '#ff6b6b', success: '#4CAF50', done: '#666', root: '#6b6bff' };
+                ctx.fillStyle = colors[n.state] || '#444';
+                ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+                if (i === visible.length - 1 && n.state === 'exploring') { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1.5 }
+            });
+        }
+
+        function updateMask(mask) {
+            let el = document.getElementById('maskDisplay');
+            if (mask === undefined || mask === null) { el.innerHTML = '—'; return }
+            let bits = mask.toString(2).padStart(allGems.length, '0');
+            el.innerHTML = bits.split('').map((b, i) => `<span class="mask-bit-${b}">${b}</span>`).join('') + ` <span style="color:#888;font-size:.7rem">(${mask})</span>`;
+        }
+
+        function addLog(msg, cls) {
+            let el = document.getElementById('log');
+            let d = document.createElement('div'); d.className = cls || ''; d.textContent = msg;
+            el.appendChild(d); el.scrollTop = el.scrollHeight;
+        }
+
+        function updateStats(s) {
+            document.getElementById('statExplored').textContent = s.explored || 0;
+            document.getElementById('statPruned').textContent = s.pruned || 0;
+            document.getElementById('statSolutions').textContent = s.solutions || 0;
+            document.getElementById('statBest').textContent = s.bestLen !== null ? s.bestLen : '—';
+            document.getElementById('statDepth').textContent = s.depth !== undefined ? s.depth : '0';
+            let gc = 0, mask = s.mask || 0; for (let b = 0; b < allGems.length; b++)if (mask & (1 << b)) gc++;
+            document.getElementById('statGems').textContent = gc + '/' + allGems.length;
+        }
+
+        function updateExplain(s) {
+            let el = document.getElementById('stateExplain');
+            let html = '';
+            if (s.type === 'explore') html = `<strong>Exploring</strong> position (${s.x}, ${s.y}) at depth ${s.depth}.<br>Trying all 8 slide directions from here. Gems collected so far: <strong>${s.gemsCollected}/${allGems.length}</strong>`;
+            else if (s.type === 'try_dir') html = `<strong>Trying ${s.dirName}</strong> direction.<br>Player slides from (${s.x},${s.y}) to (${s.endX},${s.endY}).${s.newGems > 0 ? '<br>💎 Collected <strong>' + s.newGems + '</strong> gem(s) during this slide!' : ''}`;
+            else if (s.type === 'prune') html = `<strong style="color:#ff6b6b">✂ PRUNED!</strong><br>${s.reason === 'path_too_long' ? 'Current path is already as long as the best solution found. No point exploring further.' : 'This exact state (position + gems collected) was already reached with fewer moves. Skipping.'}`;
+            else if (s.type === 'backtrack') html = `<strong style="color:#ff9800">↩ BACKTRACKING</strong><br>Done exploring the ${s.dirName} direction. Undoing this move and trying the next direction.`;
+            else if (s.type === 'success') html = `<strong style="color:#4CAF50">✅ SOLUTION FOUND!</strong><br>Collected all gems in <strong>${s.path.length}</strong> moves! ${s.bestLen === s.path.length ? 'This is the new best solution!' : ''}`;
+            else if (s.type === 'finish') html = `<strong style="color:#e040fb">🏁 COMPLETE</strong><br>Explored <strong>${s.explored}</strong> nodes, pruned <strong>${s.pruned}</strong> branches. Found <strong>${s.solutions}</strong> solution(s).<br>Best path: <strong>${s.bestLen || 'none'}</strong> moves.`;
+            else html = 'Press <strong>Step</strong> or <strong>Auto</strong> to begin.';
+            el.innerHTML = html;
+        }
+
+        // === STEP LOGIC ===
+        function step() {
+            if (stepIdx >= steps.length) return;
+            let s = steps[stepIdx]; stepIdx++;
+            let logCls = 'log-info';
+            let highlight = { playerPos: { x: s.x || playerStart.x, y: s.y || playerStart.y } };
+
+            if (s.type === 'explore') { logCls = 'log-explore'; highlight.exploring = { x: s.x, y: s.y } }
+            else if (s.type === 'try_dir') { logCls = 'log-collect'; highlight.slide = s.slidePath; highlight.playerPos = { x: s.endX, y: s.endY } }
+            else if (s.type === 'prune') { logCls = 'log-prune'; highlight.pruned = { x: s.x, y: s.y } }
+            else if (s.type === 'backtrack') { logCls = 'log-backtrack' }
+            else if (s.type === 'success') {
+                logCls = 'log-success';
+                // Retrace best path on grid
+                let bp = []; let cx = playerStart.x, cy = playerStart.y; bp.push({ x: cx, y: cy });
+                for (let m of s.path) { let sx = cx, sy = cy; while (true) { let nx = sx + m[0], ny = sy + m[1]; if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || grid[ny][nx] === WALL) break; sx = nx; sy = ny; bp.push({ x: sx, y: sy }); if (grid[sy][sx] === STOP || grid[sy][sx] === MINE) break } cx = sx; cy = sy }
+                highlight.bestPath = bp; highlight.playerPos = { x: cx, y: cy };
+            }
+            else if (s.type === 'finish') {
+                logCls = 'log-best';
+                if (s.bestPath) { let bp = []; let cx = playerStart.x, cy = playerStart.y; bp.push({ x: cx, y: cy }); for (let m of s.bestPath) { let sx = cx, sy = cy; while (true) { let nx = sx + m[0], ny = sy + m[1]; if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || grid[ny][nx] === WALL) break; sx = nx; sy = ny; bp.push({ x: sx, y: sy }); if (grid[sy][sx] === STOP || grid[sy][sx] === MINE) break } cx = sx; cy = sy } highlight.bestPath = bp; highlight.playerPos = { x: cx, y: cy } }
+            }
+
+            drawGrid(highlight); drawTree(); addLog(s.msg, logCls);
+            updateStats(s); updateMask(s.mask || s.newMask || 0); updateExplain(s);
+
+            if (stepIdx >= steps.length) { stopPlay(); document.getElementById('btnStep').disabled = true; document.getElementById('btnPlay').disabled = true; document.getElementById('btnSkip').disabled = true }
+        }
+
+        function togglePlay() {
+            if (playing) stopPlay();
+            else { playing = true; document.getElementById('btnPlay').textContent = '⏸ Pause'; document.getElementById('btnPlay').className = 'btn-step'; autoStep() }
+        }
+        function autoStep() { if (!playing || stepIdx >= steps.length) { stopPlay(); return } step(); let speed = 21 - document.getElementById('speedSlider').value; playTimer = setTimeout(autoStep, speed * 40) }
+        function stopPlay() { playing = false; clearTimeout(playTimer); document.getElementById('btnPlay').textContent = '⏵ Auto'; document.getElementById('btnPlay').className = 'btn-play' }
+        function skipToEnd() { stopPlay(); while (stepIdx < steps.length) step() }
+        function resetVis() { stopPlay(); stepIdx = 0; computeSteps(); document.getElementById('log').innerHTML = ''; document.getElementById('btnStep').disabled = false; document.getElementById('btnPlay').disabled = false; document.getElementById('btnSkip').disabled = false; drawGrid(); drawTree(); updateMask(null); updateStats({ explored: 0, pruned: 0, solutions: 0, bestLen: null, depth: 0, mask: 0 }); updateExplain({}) }
+        function newGrid() { stopPlay(); makeGrid(); resetVis() }
+
+        // === INIT ===
+        makeGrid(); computeSteps(); drawGrid(); drawTree();
+    </script>
+</body>
+
+</html>
