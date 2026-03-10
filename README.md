@@ -1,8 +1,6 @@
 # 💎 Inertia Game: Algorithmic Pathfinding Puzzle
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+
 
 Welcome to the **Inertia Puzzle**, an engaging grid-based optimization and pathfinding game built entirely with vanilla Web Technologies (HTML, CSS, JS). 
 
@@ -16,7 +14,6 @@ The core challenge of the game is to find the most efficient route to collect al
 - [✨ Features](#-features)
 - [⚙️ Setup & Installation](#️-setup--installation)
 - [🧠 Algorithmic Solvers](#-algorithmic-solvers)
-- [📊 Visualizers](#-visualizers)
 - [📂 Documentation](#-documentation)
 
 ---
@@ -86,14 +83,7 @@ The game comes with built-in automated solvers that act as an interactive visual
 
 ---
 
-## 📊 Visualizers
 
-To understand the advanced solvers better, the project includes dedicated visualizers:
-
-- **[DP Visualizer](visulaizer/dp_presentation.html):** Demonstrates the `dist[i][j]` precomputation and how the bitmask `dp[mask][i]` states are evaluated.
-- **[Backtracking Visualizer](visulaizer/backtracking_presentation.html):** Shows the recursive tree search, branch pruning, and state memoization to avoid infinite sliding loops.
-
----
 
 ## 📂 Documentation
 
