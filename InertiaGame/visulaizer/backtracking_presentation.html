@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtracking (DFS) Algorithm Visualization</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            text-align: center;
+        }
+
+        #canvas-container {
+            margin: 20px auto;
+            display: inline-block;
+            border: 2px solid #444;
+        }
+
+        canvas {
+            background: #111;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #e68a00;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: default;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 style="color: #ff9800;">Backtracking (Optimized DFS) Visualization</h1>
+    <p>Live demonstration of sliding, bitmasking, and branch & bound pruning | Use arrow keys to navigate</p>
+
+    <div id="canvas-container">
+        <canvas id="mainCanvas" width="1280" height="720"></canvas>
+    </div>
+
+    <!-- Separate Message Box -->
+    <div id="msgBoxContainer"
+        style="width: 1280px; margin: 0 auto 20px auto; background: #111; border: 2px solid #00e5ff; border-radius: 8px; padding: 20px; text-align: left; min-height: 120px; box-sizing: border-box; box-shadow: 0 0 10px rgba(0,229,255,0.3); display: none;">
+        <div id="msgBoxContent"
+            style="font-size: 22px; color: #fff; line-height: 1.5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="prevFrame()">⬅ Previous</button>
+        <span id="frameCounter" style="font-size: 20px; margin: 0 30px; font-weight: bold;">Frame 1 / 14</span>
+        <button id="nextBtn" onclick="nextFrame()">Next ➡</button>
+        <button onclick="toggleFullscreen()" style="background: #9c27b0; margin-left: 20px;">🖥️ Fullscreen</button>
+        <button onclick="currentFrame=0; updateUI();" style="background: #ff6b6b; margin-left: 10px;">↺ Reset</button>
+    </div>
+
+    <div id="status">
+        Press ← → arrow keys to navigate | F for fullscreen | R to reset
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentFrame = 0;
+
+        // --- 1. CONFIGURATION & DATA ---
+        const SCALE = 60;
+        const GRID_X = 50;
+        const GRID_Y = 120;
+
+        const GEMS = [
+            { id: '1', x: 0, y: 3 }, // On left edge
+            { id: '2', x: 4, y: 6 }, // On bottom edge
+            { id: '3', x: 6, y: 2 }  // On right edge
+        ];
+
+        const WALLS = [
+            { x: 2, y: 1 }, { x: 5, y: 5 }, { x: 1, y: 5 }
+        ];
+
+        const STOPS = [
+            { x: 2, y: 4 }, { x: 5, y: 1 } // Adding Stop plates like Inertia Game
+        ];
+
+        const MINES = [{ x: 3, y: 3 }]; // Center mine
+
+        // --- 2. FRAME DATA DEFINITION ---
+        const FRAMES = [
+            // 0: Intro
+            {
+                title: "Welcome to Backtracking Search",
+                desc: "This visualizer explains how we aggressively search for the shortest path.",
+                tree: { active: 'root', nodes: [{ id: 'root', label: 'Start (0,0)', mask: '000', color: '#ff9800' }] },
+                grid: { player: { x: 0, y: 0 }, path: [], highlights: [] },
+                extraText: [
+                    "Problem: Collect all 3 gems in minimum moves.",
+                    "",
+                    "How Backtracking Works:",
+                    "Unlike DP which is smart and math-heavy,",
+                    "Backtracking uses BRUTE FORCE but checks things logically:",
+                    "1. From any position, try ALL 8 directions.",
+                    "2. If we hit a trap or waste time, UNDO (Backtrack) immediately.",
+                    "3. If we find a good path, remember it.",
+                    "4. Try to find an even better one!"
+                ]
+            },
+            // 1: 8 Directions Check
+            {
+                title: "Step 1: Check 8 Directions",
+                desc: "From Start (0,0), we want to slide in one of 8 directions: N, S, E, W, NE, NW, SE, SW.",
+                tree: { active: 'root', nodes: [{ id: 'root', label: 'Start (0,0)', mask: '000', color: '#ff9800' }] },
+                grid: { player: { x: 0, y: 0 }, path: [], highlights: [] },
+                showRays: true,
+                extraText: [
+                    "The visualizer auto-checks all 8 directions at every node.",
+                    "Red: Invalid (Instantly hits wall/mine/boundary).",
+                    "Green: Valid direction to explore.",
+                    "We can only slide South, East, or South-East."
+                ]
+            },
+            // 2: Pick SE
+            {
+                title: "Step 2: Try a Direction (South-East)",
+                desc: "The computer picks the first valid direction to try: South-East (↘).",
+                tree: {
+                    active: 'SE_Mine',
+                    nodes: [
+                        { id: 'root', label: 'Start (0,0)', mask: '000' },
+                        { id: 'SE_Mine', label: 'HIT MINE!', mask: '000', color: '#ff4444' }
+                    ], links: [['root', 'SE_Mine']]
+                },
+                grid: { player: { x: 3, y: 3 }, path: [{ x: 0, y: 0 }, { x: 3, y: 3 }], highlights: [] },
+                extraText: [
+                    "Oh no! Sliding South-East lands us directly on a Mine at (3,3).",
+                    "This path is dead."
+                ]
+            },
+            // 3: Backtrack!
+            {
+                title: "Step 3: BACKTRACKING! ↩",
+                desc: "Dead end! We UNDO the move. This is the core magic of backtracking.",
+                tree: {
+                    active: 'root',
+                    nodes: [
+                        { id: 'root', label: 'Start (0,0)', mask: '000', color: '#ff9800' },
+                        { id: 'SE_Mine', label: 'Dead', color: '#555' }
+                    ], links: [['root', 'SE_Mine']]
+                },
+                grid: { player: { x: 0, y: 0 }, path: [], highlights: [] },
+                extraText: [
+                    "We revert our state back to Start (0,0).",
+                    "The South-East branch is permanently closed.",
+                    "Next, we try another valid direction: East."
+                ]
+            },
+            // 4: Explore East
+            {
+                title: "Step 4: Explore East →",
+                desc: "Slide East. The player slides with inertia until hitting the grid boundary at (6,0).",
+                tree: {
+                    active: 'R',
+                    nodes: [
+                        { id: 'root', label: 'Start (0,0)' },
+                        { id: 'SE_Mine', label: 'Dead', color: '#555' },
+                        { id: 'R', label: 'Slide East (6,0)', mask: '000', color: '#ff9800' }
+                    ], links: [['root', 'SE_Mine'], ['root', 'R']]
+                },
+                grid: { player: { x: 6, y: 0 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }], highlights: [] },
+                showRays: true
+            },
+            // 5: Explore Left (Pruning!)
+            {
+                title: "Step 5: Branch & Bound Pruning ✂",
+                desc: "From (6,0), we check 8 directions again. What if we try sliding Left (←)?",
+                tree: {
+                    active: 'L_Prune',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'R', label: 'Slide East' },
+                        { id: 'L_Prune', label: '✂ PRUNED', mask: '000', color: '#ff4444' }
+                    ], links: [['root', 'R'], ['R', 'L_Prune']]
+                },
+                grid: { player: { x: 0, y: 0 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 0, y: 0 }], highlights: [] },
+                extraText: [
+                    "State Memoization (Pruning):",
+                    "Sliding left takes us back to (0,0).",
+                    "We have taken 2 moves to reach (0,0) with 0 gems.",
+                    "But we STARTED at (0,0) with 0 gems in 0 moves!",
+                    "This path is strictly worse. PRUNE IT instantly to save time."
+                ]
+            },
+            // 6: Explore Down
+            {
+                title: "Step 6: Resuming from (6,0). Explore Down ↓",
+                desc: "Since Left was pruned, try Down from (6,0). We slide, grab Gem 3, and hit the bottom!",
+                tree: {
+                    active: 'R_D',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'R', label: 'East' },
+                        { id: 'R_D', label: '+ Gem 3', mask: '100', color: '#ff9800' }
+                    ], links: [['root', 'R'], ['R', 'R_D']]
+                },
+                grid: { player: { x: 6, y: 6 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }], highlights: ['3'], collected: ['3'] },
+                showRays: true
+            },
+            // 7: Explore Left
+            {
+                title: "Step 7: Explore Left ←",
+                desc: "From (6,6), we check 8 directions. Try Left. We pass Gem 2 and hit the wall.",
+                tree: {
+                    active: 'R_D_L',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'R', label: 'East' },
+                        { id: 'R_D', label: '+ Gem 3' },
+                        { id: 'R_D_L', label: '+ Gem 2', mask: '110', color: '#ff9800' }
+                    ], links: [['root', 'R'], ['R', 'R_D'], ['R_D', 'R_D_L']]
+                },
+                grid: { player: { x: 0, y: 6 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }, { x: 0, y: 6 }], highlights: ['3', '2'], collected: ['3', '2'] },
+                showRays: true
+            },
+            // 8: Success
+            {
+                title: "Step 8: First Solution Found! ✅",
+                desc: "From (0,6), try Up (↑). We grab Gem 1. ALL GEMS COLLECTED!",
+                tree: {
+                    active: 'S1',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'R', label: 'East' },
+                        { id: 'R_D', label: '+ Gem 3' },
+                        { id: 'R_D_L', label: '+ Gem 2' },
+                        { id: 'S1', label: 'Best: 4', mask: '111', color: '#4CAF50' }
+                    ], links: [['root', 'R'], ['R', 'R_D'], ['R_D', 'R_D_L'], ['R_D_L', 'S1']]
+                },
+                grid: { player: { x: 0, y: 0 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }, { x: 0, y: 6 }, { x: 0, y: 0 }], highlights: ['3', '2', '1'], collected: ['3', '2', '1'] },
+                extraText: [
+                    "PATH VALID!",
+                    "Length = 4 moves.",
+                    "We save '4' as our global Best Path record.",
+                    "Is there a faster way? We must backtrack to find out!"
+                ]
+            },
+            // 8.5: Best Path propagates up
+            {
+                title: "Step 9: Passing Best Path Up",
+                desc: "We must backtrack, saving our best result. The sub-tree tells its parent: 'I found a 4-move path!'",
+                tree: {
+                    active: 'R_D_L',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'R', label: 'East' },
+                        { id: 'R_D', label: '+ Gem 3' },
+                        { id: 'R_D_L', label: '+ Gem 2' },
+                        { id: 'S1', label: 'Best: 4', mask: '111', color: '#4CAF50' }
+                    ], links: [['root', 'R'], ['R', 'R_D'], ['R_D', 'R_D_L'], ['R_D_L', 'S1', '#4CAF50', 'dashed']]
+                },
+                grid: { player: { x: 0, y: 0 }, path: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }, { x: 0, y: 6 }, { x: 0, y: 0 }], highlights: ['3', '2', '1'], collected: ['3', '2', '1'] }
+            },
+            // 9: Backtrack Fully
+            {
+                title: "Step 10: Deep Backtracking",
+                desc: "The computer unwinds all the way back to the Start node.",
+                tree: {
+                    active: 'root',
+                    nodes: [
+                        { id: 'root', label: 'Start', color: '#ff9800' },
+                        { id: 'R', label: 'East', color: '#555' },
+                        { id: 'S1', label: 'Best: 4', color: '#4CAF50' }
+                    ], links: [['root', 'R']]
+                },
+                grid: { player: { x: 0, y: 0 }, path: [], highlights: [], collected: [] },
+                extraText: [
+                    "We tried tracking South-East and East.",
+                    "Only South (↓) is left to try from the very beginning."
+                ],
+                showRays: true
+            },
+            // 10: Explore South
+            {
+                title: "Step 11: New Branch (Explore South ↓)",
+                desc: "From Start, slide South! We pass Gem 1 immediately.",
+                tree: {
+                    active: 'D',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'S1', label: 'Best: 4', color: '#4CAF50' },
+                        { id: 'D', label: '+ Gem 1', mask: '001', color: '#ff9800' }
+                    ], links: [['root', 'D']]
+                },
+                grid: { player: { x: 0, y: 6 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }], highlights: ['1'], collected: ['1'] },
+                showRays: true
+            },
+            // 11: Explore Right
+            {
+                title: "Step 12: Explore East →",
+                desc: "Check 8 directions. Try East from (0,6). We pass Gem 2.",
+                tree: {
+                    active: 'D_R2',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'S1', label: 'Best: 4', color: '#4CAF50' },
+                        { id: 'D', label: '+ Gem 1' },
+                        { id: 'D_R2', label: '+ Gem 2', mask: '011', color: '#ff9800' }
+                    ], links: [['root', 'D'], ['D', 'D_R2']]
+                },
+                grid: { player: { x: 6, y: 6 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 6, y: 6 }], highlights: ['1', '2'], collected: ['1', '2'] },
+                showRays: true
+            },
+            // 12: Prune
+            {
+                title: "Step 13: Pruning Revisited ✂",
+                desc: "From (6,6), try Left again. But wait...",
+                tree: {
+                    active: 'L_Prune2',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'D', label: '+ Gem 1' },
+                        { id: 'D_R2', label: '+ Gem 2' },
+                        { id: 'L_Prune2', label: '✂ PRUNED', mask: '011', color: '#ff4444' }
+                    ], links: [['root', 'D'], ['D', 'D_R2'], ['D_R2', 'L_Prune2']]
+                },
+                grid: { player: { x: 0, y: 6 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 6, y: 6 }, { x: 0, y: 6 }], highlights: ['1', '2'], collected: ['1', '2'] },
+                extraText: [
+                    "We slid Left to (0,6).",
+                    "We already reached (0,6) in just 1 move earlier!",
+                    "This took 3 moves. Kill it immediately to save time."
+                ]
+            },
+            // 13: Success 2
+            {
+                title: "Step 14: Shorter Solution Found! ✅",
+                desc: "From (6,6), try Up (↑). We pass Gem 3. ALL GEMS COLLECTED!",
+                tree: {
+                    active: 'S2',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'D', label: '+ Gem 1' },
+                        { id: 'D_R2', label: '+ Gem 2' },
+                        { id: 'S1', label: 'Old Best: 4', color: '#555' },
+                        { id: 'S2', label: 'New Best: 3', mask: '111', color: '#4CAF50' }
+                    ], links: [['root', 'D'], ['D', 'D_R2'], ['D_R2', 'S2']]
+                },
+                grid: { player: { x: 6, y: 0 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 6, y: 6 }, { x: 6, y: 0 }], highlights: ['1', '2', '3'], collected: ['1', '2', '3'] },
+                extraText: [
+                    "PATH VALID!",
+                    "Path Length = 3 total moves.",
+                    "Compare with older best: 3 < 4 moves.",
+                    "Update our Global Best Path record to 3!"
+                ]
+            },
+            // 13.5: Bubble up 2
+            {
+                title: "Step 15: Passing Best Path Up",
+                desc: "We found an even shorter path! Bubble this result up.",
+                tree: {
+                    active: 'D_R2',
+                    nodes: [
+                        { id: 'root', label: 'Start' },
+                        { id: 'D', label: '+ Gem 1' },
+                        { id: 'D_R2', label: '+ Gem 2' },
+                        { id: 'S1', label: 'Old Best: 4', color: '#555' },
+                        { id: 'S2', label: 'New Best: 3', mask: '111', color: '#4CAF50' }
+                    ], links: [['root', 'D'], ['D', 'D_R2'], ['D_R2', 'S2', '#4CAF50', 'dashed']] // dashed propagation
+                },
+                grid: { player: { x: 6, y: 0 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 6, y: 6 }, { x: 6, y: 0 }], highlights: ['1', '2', '3'], collected: ['1', '2', '3'] }
+            },
+            // 14: Final Complete
+            {
+                title: "Conclusion: Backtracking Complete 🏁",
+                desc: "After checking all reasonable paths and pruning bad ones, we know 3 is absolute best.",
+                tree: {
+                    active: 'S2',
+                    nodes: [
+                        { id: 'root', label: 'COMPLETED!', color: '#ff9800' },
+                        { id: 'S2', label: 'FINAL BEST: 3', mask: '111', color: '#4CAF50' }
+                    ], links: [['root', 'S2']]
+                },
+                grid: { player: { x: 6, y: 0 }, path: [{ x: 0, y: 0 }, { x: 0, y: 6 }, { x: 6, y: 6 }, { x: 6, y: 0 }], highlights: ['1', '2', '3'], collected: ['1', '2', '3'] },
+                extraText: [
+                    "Summary of Backtracking:",
+                    "- Tries every combination thoroughly.",
+                    "- Is smart about UNDO-ing mistakes immediately.",
+                    "- Employs 'Branch & Bound' to stop searching bad paths.",
+                    "- Guarantees the absolute shortest possible path!"
+                ]
+            }
+        ];
+
+        // --- 3. RENDER LOGIC ---
+
+        function drawFrame(fIndex) {
+            const f = FRAMES[fIndex];
+
+            // Clear Background
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // --- A. DRAW GRID (Left Side) ---
+            const GRID_W = 7 * SCALE; // 420
+            const GRID_H = 7 * SCALE; // 420
+
+            // Grid Background
+            ctx.fillStyle = '#111';
+            ctx.fillRect(GRID_X, GRID_Y, GRID_W, GRID_H);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+
+            // Grid Lines
+            for (let x = 0; x <= 7; x++) {
+                ctx.beginPath(); ctx.moveTo(GRID_X + x * SCALE, GRID_Y); ctx.lineTo(GRID_X + x * SCALE, GRID_Y + GRID_H); ctx.stroke();
+            }
+            for (let y = 0; y <= 7; y++) {
+                ctx.beginPath(); ctx.moveTo(GRID_X, GRID_Y + y * SCALE); ctx.lineTo(GRID_X + GRID_W, GRID_Y + y * SCALE); ctx.stroke();
+            }
+
+            // Draw Walls
+            ctx.fillStyle = '#555';
+            WALLS.forEach(w => {
+                ctx.fillRect(GRID_X + w.x * SCALE, GRID_Y + w.y * SCALE, SCALE, SCALE);
+                ctx.strokeStyle = '#222';
+                ctx.strokeRect(GRID_X + w.x * SCALE, GRID_Y + w.y * SCALE, SCALE, SCALE);
+            });
+
+            // Draw Stop Plates
+            STOPS.forEach(s => {
+                let s_px = GRID_X + s.x * SCALE + SCALE / 2;
+                let s_py = GRID_Y + s.y * SCALE + SCALE / 2;
+                ctx.fillStyle = '#9c27b0';
+                ctx.shadowColor = '#9c27b0';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(s_px - SCALE / 3, s_py - SCALE / 3, SCALE / 1.5, SCALE / 1.5);
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw Mines
+            ctx.fillStyle = '#f44336';
+            ctx.shadowColor = '#f44336';
+            ctx.shadowBlur = 15;
+            MINES.forEach(m => {
+                let px = GRID_X + m.x * SCALE + SCALE / 2;
+                let py = GRID_Y + m.y * SCALE + SCALE / 2;
+                ctx.beginPath(); ctx.arc(px, py, SCALE / 3, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+
+            // Draw Path
+            if (f.grid.path && f.grid.path.length >= 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#ff9800';
+                ctx.lineWidth = 6;
+                ctx.lineJoin = 'round';
+
+                f.grid.path.forEach((p, i) => {
+                    let px = GRID_X + p.x * SCALE + SCALE / 2;
+                    let py = GRID_Y + p.y * SCALE + SCALE / 2;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+            }
+
+            // Draw Gems (Neon Diamonds)
+            GEMS.forEach(g => {
+                let isCollected = f.grid.collected && f.grid.collected.includes(g.id);
+                let isHighlight = f.grid.highlights.includes(g.id);
+                let px = GRID_X + g.x * SCALE + SCALE / 2;
+                let py = GRID_Y + g.y * SCALE + SCALE / 2;
+
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(Math.PI / 4); // 45 degrees
+                ctx.beginPath();
+                let size = SCALE / 3.5;
+                ctx.rect(-size, -size, size * 2, size * 2);
+
+                if (isCollected) {
+                    ctx.fillStyle = '#222';
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = isHighlight ? '#00e5ff' : '#00aacc';
+                    ctx.shadowColor = '#00e5ff';
+                    ctx.shadowBlur = 15;
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                }
+                ctx.fill();
+                if (!isCollected) ctx.stroke();
+                ctx.restore();
+
+                if (!isCollected) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowBlur = 0;
+                    ctx.fillText(g.id, px, py);
+                }
+            });
+
+            // Draw Player (Green box like main game)
+            if (f.grid.player) {
+                let px = GRID_X + f.grid.player.x * SCALE + SCALE / 2;
+                let py = GRID_Y + f.grid.player.y * SCALE + SCALE / 2;
+                ctx.fillStyle = '#4CAF50';
+                ctx.shadowColor = '#4CAF50';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(px - 15, py - 15, 30, 30);
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - 15, py - 15, 30, 30);
+
+                if (f.showRays || f.grid.rays) {
+                    const dirs = [
+                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+                        { dx: 1, dy: -1 }, { dx: -1, dy: -1 }, { dx: 1, dy: 1 }, { dx: -1, dy: 1 }
+                    ];
+
+                    let raysToDraw = f.grid.rays || dirs.map(d => {
+                        let nx_grid = f.grid.player.x + d.dx;
+                        let ny_grid = f.grid.player.y + d.dy;
+                        let isWall = WALLS.some(w => w.x === nx_grid && w.y === ny_grid);
+                        let isMine = MINES.some(m => m.x === nx_grid && m.y === ny_grid);
+                        let valid = nx_grid >= 0 && nx_grid <= 6 && ny_grid >= 0 && ny_grid <= 6 && !isWall && !isMine;
+                        return { dx: d.dx, dy: d.dy, valid: valid };
+                    });
+
+                    raysToDraw.forEach(r => {
+                        ctx.beginPath();
+                        ctx.moveTo(px, py);
+                        let targetX = px + r.dx * SCALE;
+                        let targetY = py + r.dy * SCALE;
+                        ctx.setLineDash([5, 5]);
+                        ctx.lineTo(targetX, targetY);
+
+                        if (r.valid) {
+                            ctx.strokeStyle = '#4CAF50';
+                            ctx.lineWidth = 4;
+                        } else {
+                            ctx.strokeStyle = '#f44336';
+                            ctx.lineWidth = 2;
+                        }
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        ctx.beginPath();
+                        ctx.arc(targetX, targetY, 4, 0, Math.PI * 2);
+                        ctx.fillStyle = r.valid ? '#4CAF50' : '#f44336';
+                        ctx.fill();
+                    });
+                }
+            }
+
+
+            // --- B. DRAW TREE (Right Side) ---
+            const TREE_X = 800;
+            const TREE_Y = 150;
+            const NODE_W = 160;
+            const NODE_H = 65;
+
+            // Simplified fixed layout for tree based on demo scripts
+            const nodePos = {
+                'root': { x: TREE_X, y: TREE_Y },
+                'SE_Mine': { x: TREE_X + 180, y: TREE_Y + 120 },
+                'R': { x: TREE_X - 180, y: TREE_Y + 120 },
+                'L_Prune': { x: TREE_X - 180, y: TREE_Y + 240 },
+                'R_D': { x: TREE_X - 50, y: TREE_Y + 240 },
+                'R_D_L': { x: TREE_X - 50, y: TREE_Y + 360 },
+                'S1': { x: TREE_X - 50, y: TREE_Y + 480 },
+
+                'D': { x: TREE_X + 0, y: TREE_Y + 120 },
+                'D_R2': { x: TREE_X + 0, y: TREE_Y + 240 },
+                'L_Prune2': { x: TREE_X + 150, y: TREE_Y + 360 },
+                'S2': { x: TREE_X + 0, y: TREE_Y + 360 },
+            };
+
+            // Connections
+            if (f.tree.links) {
+                f.tree.links.forEach(link => {
+                    let p1 = nodePos[link[0]];
+                    let p2 = nodePos[link[1]];
+                    let strokeColor = link[2] || '#666';
+                    let isDashed = link[3] === 'dashed';
+
+                    if (p1 && p2) {
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y + NODE_H / 2);
+                        ctx.lineTo(p2.x, p2.y - NODE_H / 2);
+                        ctx.strokeStyle = strokeColor;
+                        ctx.lineWidth = isDashed || strokeColor !== '#666' ? 5 : 3;
+
+                        if (isDashed) {
+                            ctx.shadowColor = strokeColor;
+                            ctx.shadowBlur = 10;
+                            ctx.setLineDash([8, 8]);
+                        }
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.shadowBlur = 0;
+
+                        // Draw an upward glowing arrow for the return propagation visualization!
+                        if (isDashed) {
+                            let mx = (p1.x + p2.x) / 2;
+                            let my = (p1.y + p2.y) / 2;
+                            ctx.fillStyle = strokeColor;
+                            ctx.shadowColor = strokeColor;
+                            ctx.shadowBlur = 15;
+                            ctx.font = 'bold 30px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('▲', mx + 15, my - 5);
+                            ctx.shadowBlur = 0;
+                        }
+                    }
+                });
+            }
+
+            // Nodes
+            if (f.tree.nodes) {
+                f.tree.nodes.forEach(node => {
+                    let pos = nodePos[node.id] || { x: TREE_X, y: TREE_Y };
+                    let isActive = (node.id === f.tree.active);
+
+                    ctx.beginPath();
+                    // Shadow for active
+                    if (isActive) {
+                        ctx.shadowColor = '#ff9800';
+                        ctx.shadowBlur = 20;
+                    }
+
+                    ctx.rect(pos.x - NODE_W / 2, pos.y - NODE_H / 2, NODE_W, NODE_H);
+                    ctx.fillStyle = node.color || '#222';
+                    ctx.fill();
+
+                    ctx.shadowBlur = 0; // reset shadow
+
+                    ctx.strokeStyle = isActive ? '#fff' : '#444';
+                    ctx.lineWidth = isActive ? 3 : 2;
+                    ctx.stroke();
+
+                    // Text inside box
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'center';
+
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(node.label, pos.x, pos.y - 10);
+
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '14px monospace';
+                    if (node.mask) {
+                        // Highlight 1s in mask
+                        ctx.fillText(`Mask: ${node.mask}`, pos.x, pos.y + 15);
+                    }
+                });
+            }
+
+            // --- C. TEXT OVERLAYS ---
+            ctx.fillStyle = '#ff9800';
+            ctx.font = 'bold 36px Segoe UI';
+            ctx.textAlign = 'left';
+            ctx.fillText(f.title, 50, 60);
+
+            ctx.fillStyle = '#ddd';
+            ctx.font = '24px Segoe UI';
+            ctx.fillText(f.desc, 50, 100);
+
+            if (f.extraText && f.extraText.length > 0) {
+                let msgHtml = '';
+                f.extraText.forEach(line => {
+                    if (line.startsWith('Problem:') || line.startsWith('How Backtracking Works:') || line.startsWith('State Memoization') || line.startsWith('PATH VALID') || line.startsWith('Summary of Backtracking:')) {
+                        msgHtml += `<div style="color: #FFC107; font-weight: bold; font-size: 26px; margin-top: 10px;">${line}</div>`;
+                    } else if (line.trim() === '') {
+                        msgHtml += `<br>`;
+                    } else {
+                        msgHtml += `<div>${line}</div>`;
+                    }
+                });
+                document.getElementById('msgBoxContainer').style.display = 'block';
+                document.getElementById('msgBoxContent').innerHTML = msgHtml;
+            } else {
+                document.getElementById('msgBoxContainer').style.display = 'none';
+                document.getElementById('msgBoxContent').innerHTML = '';
+            }
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#888';
+            ctx.fillText(`Frame ${fIndex + 1} / ${FRAMES.length}`, canvas.width - 50, 660);
+
+            // Draw Mask explanation box if relevant
+            if (f.tree.active !== 'root' && f.grid.collected) {
+                ctx.fillStyle = '#111';
+                ctx.strokeStyle = '#444';
+                ctx.fillRect(GRID_X + GRID_W + 50, GRID_Y, 200, 100);
+                ctx.strokeRect(GRID_X + GRID_W + 50, GRID_Y, 200, 100);
+
+                ctx.fillStyle = '#ff9800';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 18px Arial';
+                ctx.fillText("BITMASK (1 2 3)", GRID_X + GRID_W + 150, GRID_Y + 30);
+
+                let m1 = f.grid.collected.includes('1') ? '1' : '0';
+                let m2 = f.grid.collected.includes('2') ? '1' : '0';
+                let m3 = f.grid.collected.includes('3') ? '1' : '0';
+
+                ctx.font = 'bold 36px monospace';
+                ctx.fillStyle = m1 === '1' ? '#4CAF50' : '#888';
+                ctx.fillText(m1, GRID_X + GRID_W + 110, GRID_Y + 75);
+                ctx.fillStyle = m2 === '1' ? '#4CAF50' : '#888';
+                ctx.fillText(m2, GRID_X + GRID_W + 150, GRID_Y + 75);
+                ctx.fillStyle = m3 === '1' ? '#4CAF50' : '#888';
+                ctx.fillText(m3, GRID_X + GRID_W + 190, GRID_Y + 75);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('frameCounter').innerText = `Frame ${currentFrame + 1} / ${FRAMES.length}`;
+            document.getElementById('prevBtn').disabled = (currentFrame === 0);
+            document.getElementById('nextBtn').disabled = (currentFrame === FRAMES.length - 1);
+            drawFrame(currentFrame);
+        }
+
+        function nextFrame() {
+            if (currentFrame < FRAMES.length - 1) {
+                currentFrame++;
+                updateUI();
+            }
+        }
+
+        function prevFrame() {
+            if (currentFrame > 0) {
+                currentFrame--;
+                updateUI();
+            }
+        }
+
+        updateUI();
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextFrame();
+            else if (e.key === 'ArrowLeft') prevFrame();
+            else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+            else if (e.key === 'r' || e.key === 'R') { currentFrame = 0; updateUI(); }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        }
+
+    </script>
+</body>
+
+</html>

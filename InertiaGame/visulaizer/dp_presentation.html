@@ -136,9 +136,9 @@
             <table id="dpTable">
                 <tr>
                     <th>Mask</th>
-                    <th>End G1</th>
-                    <th>End G2</th>
-                    <th>End G3</th>
+                    <th>End Pos 1</th>
+                    <th>End Pos 2</th>
+                    <th>End Pos 3</th>
                 </tr>
                 <tr id="r-001">
                     <td class="mask-col">001 {1}</td>
@@ -192,6 +192,13 @@
         </div>
     </div>
 
+    <!-- Separate Message Box -->
+    <div id="msgBoxContainer"
+        style="width: 1280px; margin: 0 auto 20px auto; background: #111; border: 2px solid #00e5ff; border-radius: 8px; padding: 20px; text-align: left; min-height: 120px; box-sizing: border-box; box-shadow: 0 0 10px rgba(0,229,255,0.3); display: none;">
+        <div id="msgBoxContent"
+            style="font-size: 22px; color: #fff; line-height: 1.5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        </div>
+    </div>
     <div class="controls">
         <button id="prevBtn" onclick="prevFrame()">⬅ Previous</button>
         <span id="frameCounter" style="font-size: 20px; margin: 0 30px; font-weight: bold;">Frame 1 / 14</span>
@@ -213,10 +220,10 @@
         // We abstract the grid into a graph. 
         // S = Start, 1 = Gem 1, 2 = Gem 2, 3 = Gem 3
         const NODES = {
-            'S': { x: 200, y: 150, label: 'Start (S)', color: '#ff9800' },
-            '1': { x: 100, y: 400, label: 'Gem 1', color: '#00ccff' },
-            '2': { x: 400, y: 550, label: 'Gem 2', color: '#00ccff' },
-            '3': { x: 600, y: 300, label: 'Gem 3', color: '#00ccff' }
+            'S': { x: 200, y: 150, label: 'Start (S)', color: '#4CAF50' }, // Green player
+            '1': { x: 100, y: 400, label: 'Stop Pos 1', color: '#9c27b0' }, // Purple Stop plate
+            '2': { x: 400, y: 550, label: 'Stop Pos 2', color: '#9c27b0' },
+            '3': { x: 600, y: 300, label: 'Stop Pos 3', color: '#9c27b0' }
         };
 
         // Precalculated graph edges (directed) with lengths (moves)
@@ -232,122 +239,172 @@
             { from: '3', to: '2', length: 3, cPoints: [{ x: 550, y: 450 }] },
         ];
 
-        // --- 2. FRAME DATA DEFINITION ---
         const FRAMES = [
             {
-                title: "Phase 1: Grid to Graph Transformation",
-                desc: "DP abstraction: The grid is converted into a graph of 'Points of Interest' (Start and Gems).",
-                showGraph: true, highlightEdges: [], showTable: false, tableUpdates: {}
+                title: "Welcome to Dynamic Programming (Bitmask TSP)",
+                desc: "This visualizer explains how we efficiently find the shortest path to collect all gems.",
+                showGraph: false, showTable: false, highlightEdges: [], tableUpdates: {},
+                extraText: [
+                    "Problem:",
+                    "1. We have a grid with a Start position and 3 Gems.",
+                    "2. The player slides with INERTIA (keeps moving until hitting a wall).",
+                    "3. We must find the OPTIMAL order to collect all gems in minimum moves.",
+                    "",
+                    "Why DP?",
+                    "A naive Breadth-First Search (BFS) explores too many empty grid spaces.",
+                    "DP abstracts the grid into a smaller graph, solving it instantly."
+                ]
+            },
+            {
+                title: "Step 1: Grid to Graph Transformation (Phase 1)",
+                desc: "Nodes aren't exactly 'gems'. Because of inertia, they are the 'Stop Positions' the player lands on AFTER sliding through a gem.",
+                showGraph: true, highlightEdges: [], showTable: false, tableUpdates: {},
+                extraText: []
+            },
+            {
+                title: "Step 2: Understanding 'Bitmasks'",
+                desc: "We use a 'Bitmask' (binary string) to track which gems we have collected so far.",
+                showGraph: true, highlightEdges: [], showTable: true, tableUpdates: {},
+                extraText: [
+                    "Bitmask Representation:",
+                    "000 = No gems collected",
+                    "001 = Gem 1 collected (Bit 1 is ON)",
+                    "010 = Gem 2 collected (Bit 2 is ON)",
+                    "011 = Gems 1 & 2 collected",
+                    "111 = All 3 Gems collected"
+                ]
+            },
+            {
+                title: "Step 3: Understanding the DP Table",
+                desc: "Our table tracks: dp[mask][endPos]",
+                showGraph: true, highlightEdges: [], showTable: true, tableUpdates: {},
+                extraText: [
+                    "For example, the cell for Mask '011' and End Pos 2 means:",
+                    "\"Minimum moves to collect Gems 1 and 2, AND finish at Stop Pos 2.\""
+                ]
             },
             {
                 title: "Phase 1: Precompute Distances from Start",
-                desc: "Run BFS from Start to calculate shortest moves to every gem.",
-                showGraph: true, highlightEdges: ['S-1', 'S-2', 'S-3'], showTable: false, tableUpdates: {}
+                desc: "We first run a simple BFS from Start to find out how many moves it takes to reach each Stop Position.",
+                showGraph: true, highlightEdges: ['S-1', 'S-2', 'S-3'], showTable: false, tableUpdates: {},
+                extraText: []
             },
             {
                 title: "Phase 1: Precompute Gem Pairwise Distances",
-                desc: "Run BFS from Gem 1 to all other gems. Note: Distances can be asymmetrical in Inertia!",
-                showGraph: true, highlightEdges: ['1-2', '1-3'], showTable: false, tableUpdates: {}
+                desc: "Next, we run BFS from Gem 1 to all other gems. Note: Distances can be asymmetrical in Inertia!",
+                showGraph: true, highlightEdges: ['1-2', '1-3'], showTable: false, tableUpdates: {},
+                extraText: [
+                    "Example: Sliding 1 -> 2 takes 1 move.",
+                    "Sliding 1 -> 3 takes 3 moves."
+                ]
             },
             {
                 title: "Phase 1: Precompute Gem Pairwise Distances",
-                desc: "Run BFS from Gem 2 and Gem 3 to all other points. The Distance Matrix is now complete!",
-                showGraph: true, highlightEdges: ['2-1', '2-3', '3-1', '3-2'], showTable: false, tableUpdates: {}
+                desc: "We do the same for Gem 2 and Gem 3. Now we have distances between ALL pairs. Phase 1 is complete!",
+                showGraph: true, highlightEdges: ['2-1', '2-3', '3-1', '3-2'], showTable: false, tableUpdates: {}, extraText: []
             },
 
             // Phase 2 starting
             {
-                title: "Phase 2: DP Initialization (Popcount = 1)",
-                desc: "Now we build the DP table bottom-up. Base case: Collecting exactly 1 gem requires moving directly from Start.",
-                showGraph: true, highlightEdges: ['S-1', 'S-2', 'S-3'], showTable: true,
-                tableUpdates: { 'c-1-1': { val: '1', active: true }, 'c-2-2': { val: '3', active: true }, 'c-4-3': { val: '2', active: true } }
+                title: "Phase 2: DP Base Cases (1 Gem Collected)",
+                desc: "Let's fill the table bottom-up. Base case: Collecting exactly 1 gem requires moving directly from Start.",
+                showGraph: true, highlightEdges: ['S-1'], showTable: true,
+                tableUpdates: { 'c-1-1': { val: '1', active: true } }, extraText: ["Start -> Pos 1 takes 1 move."]
             },
             {
-                title: "Phase 2: DP State Transition (Popcount = 2)",
-                desc: "To collect {1,2} ending at Gem 2, we take the best path to {1} ending at Gem 1, then add dist(1 → 2).",
+                title: "Phase 2: DP Base Cases (1 Gem Collected)",
+                desc: "Start -> Pos 2 takes 3 moves. Start -> Pos 3 takes 2 moves.",
+                showGraph: true, highlightEdges: ['S-2', 'S-3'], showTable: true,
+                tableUpdates: { 'c-1-1': { val: '1' }, 'c-2-2': { val: '3', active: true }, 'c-4-3': { val: '2', active: true } }, extraText: []
+            },
+            {
+                title: "Phase 2: Transitions (2 Gems Collected) - Mask 011",
+                desc: "Subset {1,2} ending at Pos 2: Take the best path to {1} (ending at 1), then add the distance from 1 -> 2.",
                 showGraph: true, highlightEdges: ['1-2'], showTable: true,
-                tableUpdates: { 'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '1+1=2', active: true } }
+                tableUpdates: { 'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '1+1=2', active: true } },
+                extraText: ["Formula:", "dp[011][2] = dp[001][1] + dist(1 -> 2)", "dp[011][2] = 1 + 1 = 2 moves"]
             },
             {
-                title: "Phase 2: DP State Transition (Popcount = 2)",
-                desc: "To collect {1,2} ending at Gem 1, we take the best path to {2} ending at Gem 2, then add dist(2 → 1).",
+                title: "Phase 2: Transitions (2 Gems Collected) - Mask 011",
+                desc: "Subset {1,2} ending at Pos 1: Take the best path to {2} (ending at 2), then add the distance from 2 -> 1.",
                 showGraph: true, highlightEdges: ['2-1'], showTable: true,
-                tableUpdates: { 'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '3+2=5', active: true } }
+                tableUpdates: { 'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '3+2=5', active: true } },
+                extraText: ["Formula:", "dp[011][1] = dp[010][2] + dist(2 -> 1)", "dp[011][1] = 3 + 2 = 5 moves"]
             },
             {
-                title: "Phase 2: DP State Transition (Mask 101: {1,3})",
-                desc: "Calculate states for subset {1,3}: Find min paths ending at Gem 1 and ending at Gem 3.",
+                title: "Phase 2: Transitions (2 Gems Collected) - Mask 101",
+                desc: "Subset {1,3} ending at Pos 3: From {1} to 3 => 1 + 3 = 4 moves. Ending at Pos 1: From {3} to 1 => 2 + 2 = 4 moves.",
                 showGraph: true, highlightEdges: ['1-3', '3-1'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '1+3=4', active: true }, 'c-5-1': { val: '2+2=4', active: true }
-                }
+                }, extraText: []
             },
             {
-                title: "Phase 2: DP State Transition (Mask 110: {2,3})",
-                desc: "Calculate states for subset {2,3}: ending at Gem 2 and ending at Gem 3.",
+                title: "Phase 2: Transitions (2 Gems Collected) - Mask 110",
+                desc: "Subset {2,3} ending at 3 => From {2} to 3 => 3 + 1 = 4. Ending at 2 => From {3} to 2 => 2 + 3 = 5.",
                 showGraph: true, highlightEdges: ['2-3', '3-2'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' },
                     'c-6-3': { val: '3+1=4', active: true }, 'c-6-2': { val: '2+3=5', active: true }
-                }
+                }, extraText: []
             },
 
             // Popcount 3
             {
-                title: "Phase 2: Final Transitions (Popcount = 3)",
-                desc: "Goal state: All 3 gems (Mask 111). To end at Gem 1, we look at the previous subset {2,3} ending at either G2 or G3.",
+                title: "Phase 2: Final Transitions (All 3 Gems) - Mask 111",
+                desc: "Goal: Mask 111. To end at Pos 1, check previous subset {2,3}. We can come from Pos 2 (5+2=7) or Pos 3 (4+2=6). Min is 6.",
                 showGraph: true, highlightEdges: ['2-1', '3-1'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' }, 'c-6-3': { val: '4' }, 'c-6-2': { val: '5' },
-                    'c-7-1': { val: 'min(5+2, 4+2)=6', active: true }
-                }
+                    'c-7-1': { val: 'min(5+2, 4+2) = 6', active: true }
+                }, extraText: ["Formula:", "dp[111][1] = min(", "  dp[110][2] + dist(2->1),", "  dp[110][3] + dist(3->1)", ")"]
             },
             {
-                title: "Phase 2: Final Transitions (Popcount = 3)",
-                desc: "To collect all 3 and end at Gem 2, we look at previous subset {1,3} ending at G1 or G3.",
+                title: "Phase 2: Final Transitions (All 3 Gems) - Mask 111",
+                desc: "To end at Pos 2, check subset {1,3}. Come from Pos 1 (4+1=5) or Pos 3 (4+3=7). Min is 5.",
                 showGraph: true, highlightEdges: ['1-2', '3-2'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' }, 'c-6-3': { val: '4' }, 'c-6-2': { val: '5' }, 'c-7-1': { val: '6' },
-                    'c-7-2': { val: 'min(4+1, 4+3)=5', active: true }
-                }
+                    'c-7-2': { val: 'min(4+1, 4+3) = 5', active: true }
+                }, extraText: []
             },
             {
-                title: "Phase 2: Final Transitions (Popcount = 3)",
-                desc: "To collect all 3 and end at Gem 3, we look at previous subset {1,2} ending at G1 or G2.",
+                title: "Phase 2: Final Transitions (All 3 Gems) - Mask 111",
+                desc: "To end at Pos 3, check subset {1,2}. Come from Pos 1 (5+3=8) or Pos 2 (2+1=3). Min is 3.",
                 showGraph: true, highlightEdges: ['1-3', '2-3'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' }, 'c-6-3': { val: '4' }, 'c-6-2': { val: '5' }, 'c-7-1': { val: '6' },
                     'c-7-2': { val: '5' },
-                    'c-7-3': { val: 'min(5+3, 2+1)=3', active: true }
-                }
+                    'c-7-3': { val: 'min(5+3, 2+1) = 3', active: true }
+                }, extraText: []
             },
 
             // Result
             {
-                title: "Extraction: Finding the Optimal Path",
-                desc: "The table is fully populated. To find the optimal solution, simply take the minimum of the final row (Mask 111).",
+                title: "Conclusion: Finding the Optimal Path",
+                desc: "The table is fully populated. We look at the final row (Mask 111 - all gems) and pick the smallest value.",
                 showGraph: true, highlightEdges: [], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1' }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2' }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' }, 'c-6-3': { val: '4' }, 'c-6-2': { val: '5' }, 'c-7-1': { val: '6' },
                     'c-7-2': { val: '5' },
                     'c-7-3': { val: '3', opt: true }
-                }
+                }, extraText: ["Minimum value is 3 moves, ending at Stop Pos 3."]
             },
             {
-                title: "Extraction: Reconstructing the Path",
-                desc: "The shortest path is 3 moves, ending at Gem 3. Tracing back: S → G1 → G2 → G3. DP completed perfectly.",
+                title: "Conclusion: Reconstructing the Path",
+                desc: "We trace back through the choices that gave us 3 moves: S → G1 → G2 → G3. DP completed!",
                 showGraph: true, highlightEdges: ['S-1', '1-2', '2-3'], showTable: true,
                 tableUpdates: {
                     'c-1-1': { val: '1', opt: true }, 'c-2-2': { val: '3' }, 'c-4-3': { val: '2' }, 'c-3-2': { val: '2', opt: true }, 'c-3-1': { val: '5' },
                     'c-5-3': { val: '4' }, 'c-5-1': { val: '4' }, 'c-6-3': { val: '4' }, 'c-6-2': { val: '5' }, 'c-7-1': { val: '6' },
                     'c-7-2': { val: '5' }, 'c-7-3': { val: '3', opt: true }
-                }
+                }, extraText: ["Optimal Path:", "Start -> Gem 1 -> Gem 2 -> Gem 3"]
             }
         ];
 
@@ -425,7 +482,7 @@
                 ctx.font = 'bold 18px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(n.label.includes('Start') ? 'S' : n.label.replace('Gem ', ''), n.x, n.y);
+                ctx.fillText(n.label.includes('Start') ? 'S' : n.label.replace('Stop Pos ', ''), n.x, n.y);
 
                 ctx.fillStyle = '#ccc';
                 ctx.font = '14px Segoe UI';
@@ -471,8 +528,33 @@
             ctx.font = '24px Segoe UI';
             ctx.fillText(f.desc, 50, 100);
 
+            if (f.extraText && f.extraText.length > 0) {
+                // Dim down the graph to make things less distracting
+                if (f.showGraph) {
+                    ctx.fillStyle = 'rgba(17, 17, 17, 0.85)';
+                    ctx.fillRect(40, 120, 750, 500);
+                }
+
+                let msgHtml = '';
+                f.extraText.forEach(line => {
+                    if (line.startsWith('Formula:') || line.startsWith('Bitmask') || line.startsWith('Problem:')) {
+                        msgHtml += `<div style="color: #FFC107; font-weight: bold; font-size: 26px; margin-top: 10px;">${line}</div>`;
+                    } else if (line.trim() === '') {
+                        msgHtml += `<br>`;
+                    } else {
+                        msgHtml += `<div>${line}</div>`;
+                    }
+                });
+                document.getElementById('msgBoxContainer').style.display = 'block';
+                document.getElementById('msgBoxContent').innerHTML = msgHtml;
+            } else {
+                document.getElementById('msgBoxContainer').style.display = 'none';
+                document.getElementById('msgBoxContent').innerHTML = '';
+            }
+
             ctx.textAlign = 'right';
             ctx.fillStyle = '#888';
+            ctx.font = '20px Segoe UI';
             ctx.fillText(`Frame ${fIndex + 1} / ${FRAMES.length}`, canvas.width - 50, 640);
 
             // HTML Table Logic
